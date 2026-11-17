@@ -5,6 +5,7 @@
 
 import os
 import SwiftUI
+import UniformTypeIdentifiers
 
 /// Both states side by side: Collapsed on the left, Expanded on the right.
 struct SettingsView: View {
@@ -12,7 +13,6 @@ struct SettingsView: View {
     private static let filterItemID = "filter"
     
     @Environment(MenuBarProfiles.self) private var profiles
-    @Environment(\.openURL) private var openURL
     
     /// `nil` while loading or when System Settings can't be read.
     @State private var apps: [MenuBarAllowList.App]?
@@ -21,6 +21,7 @@ struct SettingsView: View {
     @State private var filter = AppFilter.all
     @State private var isExporting = false
     @State private var isImporting = false
+    @State private var isGrantingAccess = false
     @State private var fileError: String?
     
     var body: some View {
@@ -54,6 +55,8 @@ struct SettingsView: View {
             .fileImporter(isPresented: $isImporting, allowedContentTypes: [.menuBarConfiguration]) { result in
                 do {
                     let url = try result.get()
+                    let isAccessing = url.startAccessingSecurityScopedResource()
+                    defer { if isAccessing { url.stopAccessingSecurityScopedResource() } }
                     let configuration = try JSONDecoder().decode(MenuBarConfiguration.self, from: Data(contentsOf: url))
                     try profiles.load(configuration)
                     Logger.configuration.notice("Imported \(url.path, privacy: .public)")
@@ -62,6 +65,8 @@ struct SettingsView: View {
                     fileError = error.localizedDescription
                 }
             }
+            // Otherwise both panels reopen Control Center's folder from Grant Access.
+            .fileDialogDefaultDirectory(URL.userHomeDirectory.appending(path: "Documents", directoryHint: .isDirectory))
             .alert("Couldn’t Use Configuration File", item: $fileError) { _ in
                 Button("OK") {}
             } message: { message in
@@ -82,13 +87,24 @@ struct SettingsView: View {
             ContentUnavailableView {
                 Label("Can’t Read Menu Bar Settings", systemImage: "lock")
             } description: {
-                Text("BeverageDirector needs Full Disk Access to see and change which apps may show icons in the menu bar.")
+                Text("BeverageDirector needs access to Control Center’s folder to see and change which apps may show icons in the menu bar. Click Grant Access, then confirm the folder that opens.")
             } actions: {
-                Button("Open Full Disk Access Settings") {
-                    openURL(URL(string: "x-apple.systempreferences:com.apple.preference.security?Privacy_AllFiles")!)
-                }
+                Button("Grant Access") { isGrantingAccess = true }
                 Button("Try Again", action: reload)
             }
+            .fileImporter(isPresented: $isGrantingAccess, allowedContentTypes: [.folder]) { result in
+                switch result {
+                case .success(let url):
+                    Logger.allowList.notice("Picked \(url.path, privacy: .public), expected \(MenuBarAllowList.containerURL.path, privacy: .public)")
+                    MenuBarAllowList.grantAccess(to: url)
+                    reload()
+                case .failure(let error):
+                    Logger.allowList.error("Grant Access panel failed: \(String(describing: error), privacy: .public)")
+                }
+            }
+            .fileDialogDefaultDirectory(MenuBarAllowList.containerURL)
+            .fileDialogConfirmationLabel("Grant Access")
+            .fileDialogMessage("Click “Grant Access” to let BeverageDirector change your menu bar.")
         } else {
             ProgressView()
         }

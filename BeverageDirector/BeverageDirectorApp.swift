@@ -42,7 +42,7 @@ struct BeverageDirectorApp: App {
         }
     }
 
-    /// Show settings on first launch, and whenever System Settings is unreadable (no Full Disk Access).
+    /// Show settings on first launch, and whenever System Settings is unreadable (access not granted yet).
     private var needsSetup: Bool {
         appDelegate.profiles.isFirstLaunch || !appDelegate.profiles.isSeeded
     }

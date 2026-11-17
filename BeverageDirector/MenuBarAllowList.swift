@@ -101,15 +101,52 @@ enum MenuBarAllowList {
             ?? url.deletingPathExtension().lastPathComponent
     }
 
+    // MARK: - Sandbox access
+
+    private static let bookmarkKey = "controlCenterContainerBookmark"
+
+    /// Keeps the access the open panel granted for `url` and stores it as a security-scoped bookmark for later launches.
+    static func grantAccess(to url: URL) {
+        Logger.allowList.notice("Granting access to \(url.path, privacy: .public), startAccessing: \(url.startAccessingSecurityScopedResource())")
+        do {
+            let bookmark = try url.bookmarkData(options: .withSecurityScope, includingResourceValuesForKeys: nil, relativeTo: nil)
+            UserDefaults.standard.set(bookmark, forKey: bookmarkKey)
+            Logger.allowList.notice("Saved security-scoped bookmark (\(bookmark.count) bytes)")
+        } catch {
+            Logger.allowList.error("Creating bookmark failed: \(String(describing: error), privacy: .public)")
+        }
+    }
+
+    /// Resolves the stored bookmark once per launch, before the first read or write.
+    private static let restoredAccess: Void = {
+        guard let bookmark = UserDefaults.standard.data(forKey: bookmarkKey) else {
+            Logger.allowList.notice("No stored bookmark")
+            return
+        }
+        do {
+            var isStale = false
+            let url = try URL(resolvingBookmarkData: bookmark, options: .withSecurityScope, relativeTo: nil, bookmarkDataIsStale: &isStale)
+            Logger.allowList.notice("Resolved bookmark to \(url.path, privacy: .public), stale: \(isStale), startAccessing: \(url.startAccessingSecurityScopedResource())")
+            if isStale {
+                grantAccess(to: url)
+            }
+        } catch {
+            Logger.allowList.error("Resolving bookmark failed: \(String(describing: error), privacy: .public)")
+        }
+    }()
+
     // MARK: - Private CFPreferences SPI
 
     private typealias CopyAppValue = @convention(c) (CFString, CFString, CFString) -> Unmanaged<CFPropertyList>?
     private typealias SetAppValue = @convention(c) (CFString, CFPropertyList?, CFString, CFString) -> Void
     private typealias AppSynchronize = @convention(c) (CFString, CFString) -> DarwinBoolean
 
+    /// Control Center's group container, which holds the switches.
+    static let containerURL = URL.userHomeDirectory.appending(path: "Library/Group Containers/group.com.apple.controlcenter", directoryHint: .isDirectory)
+
     private static let suite = "group.com.apple.controlcenter" as CFString
     private static let key = "trackedApplications" as CFString
-    private static let container = (NSHomeDirectory() + "/Library/Group Containers/group.com.apple.controlcenter") as CFString
+    private static let container = containerURL.path as CFString
 
     private static let coreFoundation = dlopen("/System/Library/Frameworks/CoreFoundation.framework/CoreFoundation", RTLD_NOW)
 
@@ -122,9 +159,10 @@ enum MenuBarAllowList {
     }
 
     private static func read() -> [[String: Any]]? {
+        _ = restoredAccess
         guard let copy = symbol("_CFPreferencesCopyAppValueWithContainer", as: CopyAppValue.self) else { return nil }
         guard let data = copy(key, suite, container)?.takeRetainedValue() as? Data else {
-            Logger.allowList.error("Could not read \(key as String, privacy: .public) from \(container as String, privacy: .public). Does the app have Full Disk Access?")
+            Logger.allowList.error("Could not read \(key as String, privacy: .public) from \(container as String, privacy: .public). Has access been granted?")
             return nil
         }
         do {
@@ -150,4 +188,12 @@ enum MenuBarAllowList {
             Logger.allowList.error("Encode failed: \(String(describing: error), privacy: .public)")
         }
     }
+}
+
+extension URL {
+    /// The user's real home folder. `NSHomeDirectory()` and `homeDirectory` point into our own container when sandboxed.
+    static let userHomeDirectory: URL = {
+        let home = getpwuid(getuid()).flatMap { $0.pointee.pw_dir.map { String(cString: $0) } } ?? NSHomeDirectory()
+        return URL(filePath: home, directoryHint: .isDirectory)
+    }()
 }

@@ -34,7 +34,7 @@ final class MenuBarProfiles {
     private var hidden: [Mode: Set<String>]
 
     /// False until both states have been seeded from System Settings. Nothing is applied before that,
-    /// so a launch without Full Disk Access can't switch every disabled icon back on.
+    /// so a launch without access to Control Center's settings can't switch every disabled icon back on.
     private(set) var isSeeded: Bool
 
     /// True when there was nothing saved at launch.
