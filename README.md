@@ -26,9 +26,11 @@ BeverageDirector doesn't fight the system. It flips the same **System Settings �
 | Action | Result |
 |---|---|
 | Left-click **…** | Switch between Collapsed and Expanded |
-| Right-click (or Control-click) **…** | Menu with **Launch at Login**, **Settings…** and **Quit BeverageDirector** |
+| Right-click (or Control-click) **…** | Menu with **Launch at Login**, **Automatically Collapse**, **Settings…** and **Quit BeverageDirector** |
 
 The **…** icon shows the current state: `ellipsis.circle` while collapsed, `ellipsis.circle.fill` while expanded.
+
+**Automatically Collapse** switches back to Collapsed a while after you expand: never (the default), or after 15 seconds up to 30 minutes. The countdown starts each time you switch to Expanded.
 
 ### Settings
 

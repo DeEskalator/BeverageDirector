@@ -40,12 +40,23 @@ final class MenuBarProfiles {
     /// True when there was nothing saved at launch.
     @ObservationIgnored let isFirstLaunch: Bool
 
+    /// Seconds after switching to Expanded before going back to Collapsed on its own; 0 means never.
+    var autoCollapseDelay: Int {
+        didSet {
+            defaults.set(autoCollapseDelay, forKey: "autoCollapseDelay")
+            Logger.profiles.notice("Auto-collapse delay: \(self.autoCollapseDelay)s")
+            scheduleAutoCollapse()
+        }
+    }
+
     @ObservationIgnored private let defaults: UserDefaults
     @ObservationIgnored private let ownIdentifier = Bundle.main.bundleIdentifier ?? ""
+    @ObservationIgnored private var autoCollapseTask: Task<Void, Never>?
 
     init(defaults: UserDefaults = .standard) {
         self.defaults = defaults
         current = defaults.string(forKey: "currentMode").flatMap(Mode.init) ?? .expanded
+        autoCollapseDelay = defaults.integer(forKey: "autoCollapseDelay")
         let hasSavedState = defaults.object(forKey: Self.hiddenKey(.expanded)) != nil
         isSeeded = hasSavedState
         isFirstLaunch = !hasSavedState
@@ -53,6 +64,7 @@ final class MenuBarProfiles {
             (mode, Set(defaults.stringArray(forKey: Self.hiddenKey(mode)) ?? []))
         })
         seedIfNeeded()
+        scheduleAutoCollapse()
     }
 
     /// Starts both states from whatever System Settings currently has, so nothing changes until the user edits.
@@ -90,10 +102,25 @@ final class MenuBarProfiles {
         current = mode
         save()
         apply()
+        scheduleAutoCollapse()
     }
 
     func toggle() {
         activate(current.toggled)
+    }
+
+    /// Restarts the countdown back to Collapsed while expanded, and cancels it otherwise.
+    private func scheduleAutoCollapse() {
+        autoCollapseTask?.cancel()
+        autoCollapseTask = nil
+        guard current == .expanded, autoCollapseDelay > 0 else { return }
+        let delay = autoCollapseDelay
+        autoCollapseTask = Task { [weak self] in
+            try? await Task.sleep(for: .seconds(delay))
+            guard !Task.isCancelled, let self else { return }
+            Logger.profiles.notice("Collapsing automatically after \(delay)s")
+            activate(.collapsed)
+        }
     }
 
     // MARK: Configuration files

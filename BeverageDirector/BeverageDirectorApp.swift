@@ -124,6 +124,19 @@ final class StatusItemController: NSObject {
         launchAtLogin.state = SMAppService.mainApp.status == .enabled ? .on : .off
         menu.addItem(launchAtLogin)
 
+        let autoCollapse = NSMenuItem(title: "Automatically Collapse", action: nil, keyEquivalent: "")
+        let delays = NSMenu()
+        for (title, seconds) in Self.autoCollapseDelays {
+            let item = NSMenuItem(title: title, action: #selector(autoCollapseDelayChosen), keyEquivalent: "")
+            item.target = self
+            item.tag = seconds
+            item.state = profiles.autoCollapseDelay == seconds ? .on : .off
+            delays.addItem(item)
+            if seconds == 0 { delays.addItem(.separator()) }
+        }
+        autoCollapse.submenu = delays
+        menu.addItem(autoCollapse)
+
         let settings = NSMenuItem(title: "Settings…", action: #selector(settingsChosen), keyEquivalent: ",")
         settings.target = self
         menu.addItem(settings)
@@ -139,6 +152,22 @@ final class StatusItemController: NSObject {
 
     @objc private func settingsChosen() {
         openSettings()
+    }
+
+    /// Titles and seconds for the "Automatically Collapse" submenu; 0 means never.
+    private static let autoCollapseDelays = [
+        ("Never", 0),
+        ("After 15 Seconds", 15),
+        ("After 30 Seconds", 30),
+        ("After 1 Minute", 60),
+        ("After 2 Minutes", 120),
+        ("After 5 Minutes", 300),
+        ("After 10 Minutes", 600),
+        ("After 30 Minutes", 1800),
+    ]
+
+    @objc private func autoCollapseDelayChosen(_ sender: NSMenuItem) {
+        profiles.autoCollapseDelay = sender.tag
     }
 
     @objc private func toggleLaunchAtLogin() {

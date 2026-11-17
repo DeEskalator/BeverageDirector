@@ -20,7 +20,8 @@ struct ConfigurationCommands: Commands {
     @FocusedValue(\.configurationFileActions) private var actions
 
     var body: some Commands {
-        CommandGroup(replacing: .saveItem) {
+        // Not `replacing:`, which would drop the system's Close (⌘W) along with it.
+        CommandGroup(after: .saveItem) {
             Button("Save Configuration to File…") { actions?.save() }
                 .keyboardShortcut("s")
                 .disabled(actions == nil)

@@ -4,15 +4,8 @@
     {
       "layers" : [
         {
-          "image-name" : "Unknown.png",
-          "name" : "Unknown",
-          "position" : {
-            "scale" : 0.9,
-            "translation-in-points" : [
-              0,
-              0
-            ]
-          }
+          "image-name" : "Icon.heic",
+          "name" : "Icon"
         }
       ],
       "shadow" : {
