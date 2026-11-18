@@ -42,9 +42,9 @@ struct BeverageDirectorApp: App {
         }
     }
 
-    /// Show settings on first launch, and whenever System Settings is unreadable (access not granted yet).
+    /// Show settings whenever a launch finds Control Center's settings unreadable, so the user can grant access.
     private var needsSetup: Bool {
-        appDelegate.profiles.isFirstLaunch || !appDelegate.profiles.isSeeded
+        !MenuBarAllowList.isAccessible
     }
 }
 

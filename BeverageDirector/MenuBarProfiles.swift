@@ -37,9 +37,6 @@ final class MenuBarProfiles {
     /// so a launch without access to Control Center's settings can't switch every disabled icon back on.
     private(set) var isSeeded: Bool
 
-    /// True when there was nothing saved at launch.
-    @ObservationIgnored let isFirstLaunch: Bool
-
     /// Seconds after switching to Expanded before going back to Collapsed on its own; 0 means never.
     var autoCollapseDelay: Int {
         didSet {
@@ -57,9 +54,7 @@ final class MenuBarProfiles {
         self.defaults = defaults
         current = defaults.string(forKey: "currentMode").flatMap(Mode.init) ?? .expanded
         autoCollapseDelay = defaults.integer(forKey: "autoCollapseDelay")
-        let hasSavedState = defaults.object(forKey: Self.hiddenKey(.expanded)) != nil
-        isSeeded = hasSavedState
-        isFirstLaunch = !hasSavedState
+        isSeeded = defaults.object(forKey: Self.hiddenKey(.expanded)) != nil
         hidden = Dictionary(uniqueKeysWithValues: Mode.allCases.map { mode in
             (mode, Set(defaults.stringArray(forKey: Self.hiddenKey(mode)) ?? []))
         })

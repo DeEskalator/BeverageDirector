@@ -34,6 +34,11 @@ enum MenuBarAllowList {
         return apps.sorted { $0.name.localizedStandardCompare($1.name) == .orderedAscending }
     }
 
+    /// Whether the switches can be read right now, i.e. access has been granted.
+    static var isAccessible: Bool {
+        read() != nil
+    }
+
     /// Identifiers of every tracked app (installed or not) that is currently switched off. `nil` when the settings can't be read.
     static func disallowedIdentifiers() -> Set<String>? {
         guard let entries = read() else { return nil }
