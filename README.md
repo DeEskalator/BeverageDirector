@@ -1,4 +1,11 @@
 # BeverageDirector
+<p align="center">
+  <img width="796" height="252" alt="Animation" src="https://github.com/user-attachments/assets/9f873e0b-50e0-4727-8683-f81850b6dbee" />
+</p>
+
+<p align="center">
+  <img width="450" alt="Screenshot" src="https://github.com/user-attachments/assets/fd5b6e62-b4c5-4bd4-9cd8-a9405f0d8779" />
+</p>
 
 A tiny menu bar manager that switches your Mac's menu bar between collapsed and expanded with a single click.
 
