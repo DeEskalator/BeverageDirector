@@ -19,6 +19,9 @@ struct SettingsView: View {
     @State private var hasLoaded = false
     @State private var searchText = ""
     @State private var filter = AppFilter.all
+    /// Apps that matched `filter` when it was chosen. They stay listed (dimmed) after an edit makes them
+    /// stop matching, so a stray click doesn't make a row vanish before you can see what changed.
+    @State private var filterMatches: Set<String> = []
     @State private var isExporting = false
     @State private var isImporting = false
     @State private var isGrantingAccess = false
@@ -78,9 +81,10 @@ struct SettingsView: View {
     private var content: some View {
         if let apps {
             let visibleApps = filtered(apps)
+            let dimmedIDs = Set(visibleApps.map(\.id).filter { !filter.includes($0, in: profiles) })
             HStack(alignment: .top, spacing: 20) {
-                ModeColumn(mode: .collapsed, apps: visibleApps)
-                ModeColumn(mode: .expanded, apps: visibleApps)
+                ModeColumn(mode: .collapsed, apps: visibleApps, dimmedIDs: dimmedIDs)
+                ModeColumn(mode: .expanded, apps: visibleApps, dimmedIDs: dimmedIDs)
             }
             .padding(20)
         } else if hasLoaded {
@@ -129,6 +133,7 @@ struct SettingsView: View {
         .help(filter.title)
         .onChange(of: filter) { _, filter in
             setFilterItemProminent(filter != .all)
+            captureFilterMatches()
         }
     }
 
@@ -141,9 +146,13 @@ struct SettingsView: View {
         }
     }
     
+    private func captureFilterMatches() {
+        filterMatches = Set((apps ?? []).map(\.id).filter { filter.includes($0, in: profiles) })
+    }
+    
     private func filtered(_ apps: [MenuBarAllowList.App]) -> [MenuBarAllowList.App] {
         apps.filter { app in
-            filter.includes(app.id, in: profiles)
+            (filterMatches.contains(app.id) || filter.includes(app.id, in: profiles))
             && (searchText.isEmpty
                 || app.name.localizedCaseInsensitiveContains(searchText)
                 || app.id.localizedCaseInsensitiveContains(searchText))
@@ -155,6 +164,7 @@ struct SettingsView: View {
         apps = MenuBarAllowList.installedApps()?.filter { $0.id != ownIdentifier }
         hasLoaded = true
         profiles.seedIfNeeded()
+        captureFilterMatches()
     }
 }
 
@@ -186,6 +196,8 @@ private enum AppFilter: CaseIterable, Identifiable {
 private struct ModeColumn: View {
     let mode: MenuBarProfiles.Mode
     let apps: [MenuBarAllowList.App]
+    /// Listed apps that no longer match the active filter.
+    let dimmedIDs: Set<String>
     
     @Environment(MenuBarProfiles.self) private var profiles
 
@@ -204,7 +216,7 @@ private struct ModeColumn: View {
             List {
                 Section {
                     ForEach(apps) { app in
-                        AppRow(app: app, mode: mode)
+                        AppRow(app: app, mode: mode, isDimmed: dimmedIDs.contains(app.id))
                     }
                 } header: {
                     HStack {
@@ -265,6 +277,7 @@ private struct ModeColumn: View {
 private struct AppRow: View {
     let app: MenuBarAllowList.App
     let mode: MenuBarProfiles.Mode
+    let isDimmed: Bool
     
     @Environment(MenuBarProfiles.self) private var profiles
     
@@ -279,6 +292,8 @@ private struct AppRow: View {
             }
         }
         .toggleStyle(.checkbox)
+        // Looks disabled but stays clickable, so an accidental change can be undone right here.
+        .opacity(isDimmed ? 0.4 : 1)
         .help(app.id)
     }
     
